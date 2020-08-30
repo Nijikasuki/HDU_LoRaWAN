@@ -14,9 +14,9 @@ Node_Info *LoRa_Node_str = &LoRa_Node;
 Send_Info LoRa_Send;
 Send_Info *LoRa_Send_str = &LoRa_Send;
 extern uint8_t Send_Sate_Sign;
-extern USART_RECEIVETYPE Usart2_RX;
-extern USART_RECEIVETYPE Usart1_RX;
-extern USART_RECEIVETYPE LPUsart1_RX;
+extern usart_recv_t Usart2_RX;
+extern usart_recv_t Usart1_RX;
+extern usart_recv_t LPUsart1_RX;
 /* OTAA mode default setting */
 //uint8_t devEui[] = "00 4A 77 00 66 FF FE CA";
 uint8_t appEui[] = "11 22 33 44 55 66 77 88";

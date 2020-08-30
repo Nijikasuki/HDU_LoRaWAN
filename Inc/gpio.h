@@ -57,7 +57,8 @@
 
 /* USER CODE END Private defines */
 
-//----------WAKE\MODE\BUSY\STAT\RST Macro definition-------------------------
+
+//----------LED OF WAKE\MODE\BUSY\STAT\RST Macro definition-------------------------
 #define LedGpio_WAKE GPIOD
 #define LedGpio_MODE GPIOA
 #define LedGpio_BUSY GPIOE
@@ -67,16 +68,12 @@
 #define LedPin_BUSY  GPIO_PIN_0
 #define LedPin_STAT  GPIO_PIN_1
 
-#define Gpio_WAKE    GPIOC
-#define Gpio_MODE    GPIOA
-#define Gpio_BUSY    GPIOC
-#define Gpio_STAT    GPIOC
-#define Gpio_RST     GPIOA
-#define Pin_WAKE     GPIO_PIN_3
-#define Pin_MODE     GPIO_PIN_0
-#define Pin_BUSY     GPIO_PIN_5
-#define Pin_STAT     GPIO_PIN_4
-#define Pin_RST      GPIO_PIN_1
+#define GET_KEY1_LEVEL		    HAL_GPIO_ReadPin(Gpio_KEY1,Pin_KEY1)
+#define GET_KEY2_LEVEL		    HAL_GPIO_ReadPin(Gpio_KEY2,Pin_KEY2)
+#define GET_LED_WAKE_LEVEL		HAL_GPIO_ReadPin(LedGpio_WAKE, LedPin_WAKE)
+#define GET_LED_MODE_LEVEL		HAL_GPIO_ReadPin(LedGpio_MODE,LedPin_MODE)
+#define GET_LED_BUSY_LEVEL		HAL_GPIO_ReadPin(LedGpio_BUSY,LedPin_BUSY)
+#define GET_LED_STAT_LEVEL		HAL_GPIO_ReadPin(LedGpio_STAT,LedPin_STAT)
 
 #define LEDWAKE_ON   HAL_GPIO_WritePin(LedGpio_WAKE, LedPin_WAKE, GPIO_PIN_RESET)
 #define LEDWAKE_OFF  HAL_GPIO_WritePin(LedGpio_WAKE, LedPin_WAKE, GPIO_PIN_SET)
@@ -99,7 +96,21 @@
 					 HAL_GPIO_WritePin(LedGpio_MODE, LedPin_MODE, GPIO_PIN_SET);\
 					 HAL_GPIO_WritePin(LedGpio_BUSY, LedPin_BUSY, GPIO_PIN_SET);\
 					 HAL_GPIO_WritePin(LedGpio_STAT, LedPin_STAT, GPIO_PIN_SET)
-					  
+
+
+//----------WAKE\MODE\BUSY\STAT\RST Macro definition-------------------------
+#define Gpio_WAKE    GPIOC
+#define Gpio_MODE    GPIOA
+#define Gpio_BUSY    GPIOC
+#define Gpio_STAT    GPIOC
+#define Gpio_RST     GPIOA
+#define Pin_WAKE     GPIO_PIN_3
+#define Pin_MODE     GPIO_PIN_0
+#define Pin_BUSY     GPIO_PIN_5
+#define Pin_STAT     GPIO_PIN_4
+#define Pin_RST      GPIO_PIN_1
+		
+		
 //-------------Key1\Key2 Macro definition-----------------------------------------
 #define Gpio_KEY1   GPIOC
 #define Gpio_KEY2   GPIOE

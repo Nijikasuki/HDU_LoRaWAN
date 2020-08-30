@@ -3,8 +3,8 @@
 #include "math.h"
 #include "app.h"
 
-extern DEVICE_SATE Device_Sate;
-extern DEVICE_SATE *Device_Sate_str;
+extern DEVICE_FUNCTION Device_Sate;
+extern DEVICE_FUNCTION *Device_Sate_str;
 
 
 

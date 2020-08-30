@@ -8,7 +8,7 @@
 extern int8_t send_log;  
 extern uint8_t AT_Data_buf[RXLEN];
 extern uint8_t TimeOut_Sign;
-extern USART_RECEIVETYPE LPUsart1_RX;
+extern usart_recv_t LPUsart1_RX;
 extern Node_Info LoRa_Node;
 extern Node_Info *LoRa_Node_str;
 uint8_t at_id = 1, at_fail_id[ATCMD_MAX_FAILCOUNT] = {0},at_fail_id_count = 0;//atcmd id,at fail id

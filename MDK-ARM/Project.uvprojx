@@ -16,7 +16,7 @@
         <TargetCommonOption>
           <Device>STM32L476RG</Device>
           <Vendor>STMicroelectronics</Vendor>
-          <PackID>Keil.STM32L4xx_DFP.2.2.0</PackID>
+          <PackID>Keil.STM32L4xx_DFP.1.2.0</PackID>
           <PackURL>http://www.keil.com/pack</PackURL>
           <Cpu>IROM(0x08000000,0x100000) IRAM(0x20000000,0x18000) CPUTYPE("Cortex-M4") FPU2 CLOCK(180000000) ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
@@ -567,11 +567,6 @@
               <FileType>1</FileType>
               <FilePath>..\HW_KFB\ST7789v.c</FilePath>
             </File>
-            <File>
-              <FileName>XPT2046.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\HW_KFB\XPT2046.c</FilePath>
-            </File>
           </Files>
         </Group>
         <Group>
@@ -603,11 +598,6 @@
               <FilePath>..\Src\Key.c</FilePath>
             </File>
             <File>
-              <FileName>LowPower.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Src\LowPower.c</FilePath>
-            </File>
-            <File>
               <FileName>rtc.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Src\rtc.c</FilePath>
@@ -633,24 +623,24 @@
               <FilePath>..\Src\usart.c</FilePath>
             </File>
             <File>
-              <FileName>atcmd.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Src\atcmd.c</FilePath>
-            </File>
-            <File>
               <FileName>str.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Src\str.c</FilePath>
             </File>
             <File>
-              <FileName>lorawan.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Src\lorawan.c</FilePath>
-            </File>
-            <File>
               <FileName>Production_Test.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Src\Production_Test.c</FilePath>
+            </File>
+            <File>
+              <FileName>LSD_LoRaWAN_Driver.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Src\LSD_LoRaWAN_Driver.c</FilePath>
+            </File>
+            <File>
+              <FileName>common.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Src\common.c</FilePath>
             </File>
           </Files>
         </Group>

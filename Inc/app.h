@@ -3,13 +3,11 @@
 #include "stdint.h"
 
 typedef enum {
-	START_MODE = 0,
-	CMD_MODE,
-	TRANSPARENT_MODE,
-    LPTSEND_MODE,
-    TIMSEND_MODE,
-	TESTAUTO_MODE,     
-} DEVICE_SATE;
+	POWER_ON_FUNC = 0,
+	DATA_REPORT_ONE_TIME_FUNC,
+	DATA_REGU_REPORT_FUNC,
+    NO_FUNC
+} DEVICE_FUNCTION;
 
 /*---传感器相关参数定义---*/
 //typedef struct {
@@ -27,6 +25,10 @@ typedef enum {
 //	int16_t reserve3;
 //} SENSOR;
 
+
+#define ATE_VERSION "V1.0.0"  //软件版本，升级时修改该信息即可
+#define PRINT_ATE_VERSION_INFO(format, ...)  debug_printf("************ ---LORAWAN_NODE Development board program "format"_%s %s --- ************\r\n", ##__VA_ARGS__, __DATE__, __TIME__)
+
 typedef struct {
 	char upcnt[10];
 	char ackcnt[10];
@@ -43,8 +45,8 @@ typedef struct {
 	
 } DEBUG;
 
-void User_App(void);
-
+void lr_func_achive(void);
+void lr_borad_information_print(void);
 
 
 

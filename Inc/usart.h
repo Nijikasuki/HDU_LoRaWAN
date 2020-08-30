@@ -45,10 +45,7 @@ extern "C" {
     /* USER CODE BEGIN Includes */
     
     /* USER CODE END Includes */
-    
-    extern UART_HandleTypeDef hlpuart1;
-    extern UART_HandleTypeDef huart1;
-    extern UART_HandleTypeDef huart2;
+
     
     /* USER CODE BEGIN Private defines */
 #define RECEIVELEN 1024 
@@ -61,8 +58,11 @@ typedef struct
     uint8_t dmaSend_flag;			//??????  
     uint16_t rx_len;				//????  
     uint8_t RX_Buf[RECEIVELEN];//DMA????  
-}USART_RECEIVETYPE; 
+}usart_recv_t; 
 
+extern usart_recv_t Usart1_RX;
+extern usart_recv_t Usart2_RX; 
+extern usart_recv_t LPUsart1_RX;
 
 /* USER CODE END Private defines */
 

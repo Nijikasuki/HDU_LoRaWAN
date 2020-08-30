@@ -42,9 +42,9 @@
 #include "dma.h"
 #include <stdarg.h>
 
-USART_RECEIVETYPE Usart1_RX;
-USART_RECEIVETYPE Usart2_RX; 
-USART_RECEIVETYPE LPUsart1_RX;
+usart_recv_t Usart1_RX;
+usart_recv_t Usart2_RX; 
+usart_recv_t LPUsart1_RX;
 
 //
 //UART_HandleTypeDef hlpuart1;
