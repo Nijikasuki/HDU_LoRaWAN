@@ -8,6 +8,7 @@
 /*-------------------------根据实际情况添加必要的头文件-------------------------*/
 #include "stm32l4xx_hal.h"
 #include "usart.h"
+#include "gpio.h"
 /*=====================================END======================================*/
 
 
@@ -15,30 +16,6 @@
 
 /** 根据实际MCU的打印函数替换宏定义 */
 #define DEBUG_PRINTF		debug_printf
-
-/** 读取连接模块STAT引脚的电平 */
-#define GET_STAT_LEVEL		HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1)
-
-/** 读取连接模块BUSY引脚的电平 */
-#define GET_BUSY_LEVEL		HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_4)
-
-/** 设置连接模块RESET引脚的为高电平 */
-#define SET_RESET_HIGH		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET)
-
-/** 设置连接模块RESET引脚的为低电平 */
-#define SET_RESET_LOW		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET)
-
-/** 设置连接模块MODE引脚的为高电平 */
-#define SET_MODE_HIGH		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET)
-
-/** 设置连接模块MODE引脚的为低电平 */
-#define SET_MODE_LOW		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET)
-
-/** 设置连接模块WAKE引脚的为高电平 */
-#define SET_WAKE_HIGH		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET)
-
-/** 设置连接模块WAKE引脚的为低电平 */
-#define SET_WAKE_LOW		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET)
 
 /** 读取当前系统的时间，单位为ms */
 #define GET_SYSTEM_TIME		HAL_GetTick()
@@ -67,8 +44,9 @@
 									"AT+CHMASK=00FF" \
  * @endcode
 */
-#define AT_COMMAND_AND_SAVE			"AT+BAND=47,0",  \
-									"AT+CHMASK=00FF" \
+#define AT_COMMAND_AND_SAVE			"AT+DEVEUI=802E8FCA9CBEEA4E,D391010220102816,1",  \
+									"AT+APPEUI=7435516C8A2D41ED" \
+									"AT+APPKEY=ACF54984945BD8707D61539657C9FDA3" \
 
 
 /** 用户根据产品需要，在以下宏定义中自行添加希望模块每次复位后均执行的指令（默认为NULL），每条指令以","隔开。*/
@@ -77,6 +55,12 @@
 /** 模块连续异常计数最大值，超过该值时驱动将复位模块 */
 #define ABNORMAL_CONTINUOUS_COUNT_MAX			6
 
+/** 数据帧类型和重发次数 */
+#define CONFIRM_NO_RESEND     0x10|0x01
+#define CONFIRM_W1_RESEND     0x10|0x02
+#define CONFIRM_W2_RESEND     0x10|0x03
+#define CONFIRM_W3_RESEND     0x10|0x04
+#define UNCONFIRM_NO_RESEND   0x00|0x01
 
 /* -------------------------------------------------------------------------------
  * 					!!!!此线以上用户根据平台及需要自行修改!!!!
@@ -148,14 +132,15 @@ typedef enum {
  * 发送数据的返回状态
  */
 typedef enum {
-	COMMUNICATION_SUCCESSS	= 0x01,		///< 通信成功
-	NO_JOINED				= 0x02,		///< 模块未入网
-	COMMUNICATION_FAILURE	= 0x04,		///< 确认帧未收到ACK
-	NODE_BUSY				= 0x08,		///< 模块当前处于忙状态
-	NODE_EXCEPTION			= 0x10,		///< 模块处于异常状态
-	NODE_NO_RESPONSE		= 0x20,		///< 模块串口无响应
-	PACKET_LENGTH_ERROR		= 0x40		///< 数据包长度错误
+	NODE_COMM_SUCC	       		= 0x01,		///< 通信成功
+	NODE_NOT_JOINED				= 0x02,		///< 模块未入网
+	NODE_COMM_NO_ACK			= 0x04,		///< 确认帧未收到ACK
+	NODE_BUSY_BFE_RECV_UDATA	= 0x08,		///< 模块当前处于忙状态
+	NODE_BUSY_ATR_COMM			= 0x10,		///< 模块处于异常状态
+	NODE_IDLE_ATR_RECV_UDATA	= 0x20,		///< 模块串口无响应
+	USER_DATA_SIZE_WRONG		= 0x40		///< 数据包长度错误
 }execution_status_t;
+
 
 /**
  * 终端主动复位模块的信号标致
@@ -197,14 +182,17 @@ typedef struct list {
 /*=====================================END======================================*/
 
 /*------------------------------提供给用户的接口函数----------------------------*/
+void node_gpio_set(node_gpio_t type, node_status_t value);
 void node_hard_reset(void);
+bool nodeCmdConfig(char *str);
+bool nodeCmdInqiure(char *str,uint8_t *content);
 bool node_configure(void);
 bool hot_start_rejoin(uint16_t time_second);
 bool save_cmd_configure(void);
 bool unsave_cmd_configure(void);
-bool node_block_join(uint16_t time);	
+bool nodeJoinNet(uint16_t time_second);
 void node_reset_block_join(uint16_t time_second);
-execution_status_t node_block_send(uint8_t frame_type, uint8_t *buffer, uint8_t size, down_list_t **list_head);
+execution_status_t nodeDataCommunicate(uint8_t *buffer, uint8_t size, down_list_t **list_head);
 execution_status_t node_block_send_lowpower(uint8_t frame_tpye, uint8_t *buffer, uint8_t size, down_list_t **list_head);
 bool node_block_send_big_packet(uint8_t *buffer, uint16_t size, uint8_t resend_num, down_list_t **list_head);
 bool hot_start_rejoin(uint16_t time_second);

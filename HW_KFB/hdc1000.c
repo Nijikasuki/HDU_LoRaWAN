@@ -3,12 +3,11 @@
 ** data:	2016-8-22 16:49:07
 ** author:	eric.xu @ lierda
 */
-
 #include "hdc1000.h"
 #include "usart.h"
 #include "lowpower.h"
+#include "common.h"
 
-extern uint8_t TimeOut_Sign;
 extern int8_t Error_num;
 
 
@@ -18,16 +17,6 @@ I2C_HandleTypeDef hdc1000;
 
 
 #define HDC1000_Delay(x) HAL_Delay(x)
-
-//static I2C_HandleTypeDef HDC1000_Handle;
-
-//static void Error_Handler(void)
-//{
-//  /* User may add here some code to deal with this error */
-//  while(1)
-//  {
-//  }
-//}
 
 /* configuration register */
 static void HDC1000_Write_Buffer(uint8_t addr, uint8_t *buffer, uint8_t len)
@@ -128,7 +117,6 @@ void I2Cx_Init(I2C_HandleTypeDef *i2c_handler, uint32_t address)
 	HAL_I2C_Init(i2c_handler);
 	
 	HAL_I2CEx_ConfigAnalogFilter(i2c_handler, I2C_ANALOGFILTER_ENABLE);
-
 }
 
 

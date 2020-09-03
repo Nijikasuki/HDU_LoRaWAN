@@ -87,38 +87,6 @@ static void system_delay_ms(uint32_t delay)
 	while((GET_SYSTEM_TIME - tickstart) < delay);
 }
 
-/**
-*  设置模块的引脚电平
-*@param 	type: 表示设置的是WAKE引脚还是STAT引脚
-*@param 	value: 表示设置对应引脚的高低电平
-*/
-static void node_gpio_set(node_gpio_t type, node_status_t value)
-{
-	if(mode == type)
-	{
-		if(command == value)
-		{
-			SET_MODE_HIGH;
-		}
-		else if(transparent == value)
-		{
-			SET_MODE_LOW;
-		}
-	}
-	else if(wake == type)
-	{
-		if(wakeup == value)
-		{
-			SET_WAKE_HIGH;
-		}
-		else if(sleep == value)
-		{
-			SET_WAKE_LOW;
-		}		
-	}
-
-	system_delay_ms(10);
-}
 
 /**
 *  读取模块引脚的电平
@@ -283,7 +251,7 @@ static uint32_t htoi(uint8_t s[], uint8_t size)
 }  
 
 /**
-* 查询模块是否开启热启动以及开启热启动的情况下是否已入网，该函数适用于对模块复位而用户MCU不复位的情况
+*@breif		查询模块是否开启热启动以及开启热启动的情况下是否已入网，该函数适用于对模块复位而用户MCU不复位的情况
 *@return    查询指令是否正常执行
 */
 static bool hot_start_check(void)
@@ -390,6 +358,7 @@ static bool transfer_configure_command(char *cmd)
 */
 static bool transfer_inquire_command(char *cmd, uint8_t *result)
 {
+	uint8_t *response = NULL;
 	uint8_t cmd_content[20] = {0}, i = 0;
 	char tmp_cmd[255];
 	
@@ -414,25 +383,107 @@ static bool transfer_inquire_command(char *cmd, uint8_t *result)
 	}
 	UART_RECEIVE_FLAG = 0;
 	
-	match_string((uint8_t *)cmd, (uint8_t *)"AT", (uint8_t *)"?", cmd_content);	
-	
-	while(0 != cmd_content[++i]);
-	cmd_content[i++] = ':';
-	
-	if(NULL != find_string(UART_RECEIVE_BUFFER, (uint8_t *)"OK"))
+	response = find_string(UART_RECEIVE_BUFFER, (uint8_t *)"OK");
+	if(response)
 	{
+		match_string((uint8_t *)cmd, (uint8_t *)"AT", (uint8_t *)"?", cmd_content);	
+		while(0 != cmd_content[++i]);
+		cmd_content[i++] = ':';
 		match_string(UART_RECEIVE_BUFFER, cmd_content, (uint8_t *)"OK", result);
-		return true;
 	}
-#ifdef DEBUG_LOG_LEVEL_1	
 	else
-	{	
-		DEBUG_PRINTF ("Command \"%s\" Execution failed, Module returns results: %s\r\n", cmd, UART_RECEIVE_BUFFER);
+	{
+		memcpy(result,UART_RECEIVE_BUFFER,strlen((char*)UART_RECEIVE_BUFFER));
+	}
+	return response;
+}
+
+
+/**
+* 解析部分查询指令的返回值（仅供驱动内部调用）
+*/
+static uint8_t handle_cmd_return_data(char *data, uint8_t start, uint8_t length)
+{
+	static uint8_t inquire_return_data[150];
+	
+	memset(inquire_return_data, 0, 150);
+	transfer_inquire_command(data, inquire_return_data);
+
+	return htoi((inquire_return_data + start), 2);	
+}
+
+
+/**
+ * @brief   入网扫描
+ * @details 以阻塞的形式进行入网扫描
+ * @param   [IN]time_second: 入网超时时间，单位：秒
+ * @return  返回入网的结果
+ * @retval		true:  入网成功
+ * @retval		false: 入网失败
+ *
+ * @par 示例:
+ * 下面显示如何调用该API，进行入网扫描
+ * @code
+ * // 复位节点并入网扫描，超时时间设置为300秒（超时时间可平衡功耗与入网成功率设定）
+ * if(node_block_join(300) == true)
+ * {
+ *   // 已成功入网
+ * }
+ * else
+ * {
+ *	 // 入网失败
+ * }
+ * @endcode
+ */
+static bool node_block_join(uint16_t time_second)
+{
+	gpio_level_t stat_level;
+	gpio_level_t busy_level;
+	
+#ifdef DEBUG_LOG_LEVEL_1
+	DEBUG_PRINTF("Start to join...\r\n");
+#endif
+
+	// 1.切换到透传模式开始入网
+	node_gpio_set(mode, transparent);
+	
+	timeout_start_flag = true;
+	do
+	{
+		// 2.循环查询STAT和BUSY引脚电平
+		stat_level = node_gpio_read(stat);
+		busy_level = node_gpio_read(busy);
+		
+		// 3.到达设定时间后若未入网则超时返回
+		if(true == time_out_break_ms(time_second * 1000))
+		{
+			node_gpio_set(wake, sleep);
+			DEBUG_PRINTF("Join failure\r\n");
+			return false;
+		}
+	}while(high != stat_level || high != busy_level); 
+
+#ifdef USE_NODE_STATUS
+	UART_RECEIVE_FLAG = 0;
+	
+	timeout_start_flag = true;
+	while(0 == UART_RECEIVE_FLAG && false == time_out_break_ms(50));
+	
+	if(1 == UART_RECEIVE_FLAG)
+	{
+		UART_RECEIVE_FLAG = 0;
+		last_up_datarate = UART_RECEIVE_BUFFER[4];
 	}
 #endif	
-	
-	return false;
+
+#ifdef DEBUG_LOG_LEVEL_1
+	DEBUG_PRINTF("Join seccussfuly\r\n");
+#endif
+	// 5.若未超时返回则表明模块入网成功
+	node_join_successfully = 1;
+	return true;
 }
+
 
 /**
 * 下行接收数据处理
@@ -528,6 +579,174 @@ static void down_data_process(down_list_t **list_head)
 
 
 /**
+ * @brief   以阻塞的形式发送数据
+ * @details 
+ * @param	[IN]frame_type: 十六进制，表示本次发送的帧类型和发送次数\n
+						高四位：要发送的帧为确认帧(0001)还是非确认(0000),\n
+						低四位：若确认帧，则表示未收到ACK的情况下共发送的次数；若为非确认，则表示总共需发送的次数
+ * @param   [IN]buffer: 要发送的数据包的内容
+ * @param	[IN]size: 要发送的数据包的长度
+ * @param	[OUT]list_head: 指向下行信息的链表头的指针，指向的链表中只有包含业务数据或在开启模块的STATUS指令是不包含业务数据的最后一条信息
+ * @return  本次通信的状态
+ * @retval		00000001B -01- COMMUNICATION_SUCCESSS：通信成功
+ * @retval		00000010B -02- NO_JOINED：模块未入网
+ * @retval		00000100B -04- COMMUNICATION_FAILURE：确认帧未收到ACK
+ * @retval		00001000B -08- NODE_BUSY：模块当前处于忙状态
+ * @retval		00010000B -16- NODE_EXCEPTION：模块处于异常状态
+ * @retval		00100000B -32- NODE_NO_RESPONSE：模块串口无响应
+ * @retval		01000000B -64- PACKET_LENGTH_ERROR：数据包长度错误
+ *
+ * @par 示例:
+ * 下面显示如何调用该API，发送数据
+ *
+ * @code
+ * uint8_t test_data[100];
+ * down_list_t *head = NULL;
+ * execution_status_t send_result;
+ *
+ * //发送51字节确认帧数据，重发次数为4次
+ * send_result = node_block_send(CONFIRM_TYPE | 0x04, test_data, 51, &head);
+ * DEBUG_PRINTF("Send result: %02x \n", send_result);
+ * @endcode
+ */
+static execution_status_t node_block_send(uint8_t *buffer, uint8_t size, down_list_t **list_head)
+{
+	static char comfirm_cmd[15] = {0};
+	static uint8_t abnormal_count = 0;
+	
+	/* 若连续多次发生，发数据前模块一直忙或模块串口无响应，则复位模块并重新入网*/
+	if(abnormal_count > ABNORMAL_CONTINUOUS_COUNT_MAX)
+	{
+		abnormal_count = 0;
+		node_reset_block_join(300);
+	}
+	
+	free_down_info_list(list_head, all_list);
+
+	// 1.发送数据前先判断模块是否入网
+	if(false == node_join_successfully)
+	{
+		return NODE_NOT_JOINED; 
+	}
+	// 2.判断传入的数据长度是否正确 
+	if(0 == size)
+	{
+		return USER_DATA_SIZE_WRONG; 
+	}
+	
+	// 3.拉高或保持WAKE脚为高
+	node_gpio_set(wake, wakeup);
+	
+	// 4.切到透传模式
+	node_gpio_set(mode, transparent);
+	
+	// 5.发送数据前判断模块BUSY状态，若为忙则等待TIMEOUT后返回
+	timeout_start_flag = true;
+	while(low == node_gpio_read(busy))
+	{
+		if(true == time_out_break_ms(1 * 1000))
+		{
+			abnormal_count++;
+			return NODE_BUSY_BFE_RECV_UDATA;
+		}
+	}
+	// 7.通过串口向模块发送数据
+	transfer_node_data(buffer, size);
+	// 8.判断模块BUSY是否拉低，若1s内未拉低，则模块串口异常
+	timeout_start_flag = true;
+	while(high == node_gpio_read(busy))
+	{
+		if(true == time_out_break_ms(1*1000))
+		{
+			abnormal_count++;
+			return NODE_IDLE_ATR_RECV_UDATA;
+		}
+	}
+	
+	abnormal_count = 0;
+	
+	// 9.等待BUSY拉高
+	do
+	{
+		timeout_start_flag = true;
+		while(low == node_gpio_read(busy))
+		{ 
+			/* 数据通信最大超时时间：60s */
+			if(true == time_out_break_ms(60 * 1000))
+			{
+				return NODE_BUSY_ATR_COMM;
+			}
+		}
+		
+		timeout_start_flag = true;
+		while(0 == UART_RECEIVE_FLAG)
+		{
+			if(true == time_out_break_ms(300))
+			{
+				break;
+			}
+		}
+		
+		if(1 == UART_RECEIVE_FLAG && UART_RECEIVE_LENGTH > 0)
+		{
+			UART_RECEIVE_FLAG = 0;
+#ifdef DEBUG_LOG_LEVEL_1
+			uint8_t tmp = 0;
+			DEBUG_PRINTF("[RECEIVE] ");
+			for(tmp = 0; tmp < UART_RECEIVE_LENGTH; tmp++)
+			{
+				DEBUG_PRINTF("%02x ", UART_RECEIVE_BUFFER[tmp]);	
+			}
+			DEBUG_PRINTF("\r\n");
+#endif
+			down_data_process(list_head);
+		}
+		else
+		{
+			UART_RECEIVE_LENGTH = 0;
+		}
+		
+		if(31 == confirm_continue_failure_count)
+		{
+			if(low == node_gpio_read(busy) && UART_RECEIVE_LENGTH < 10)
+			{
+				// 判断BUSY脚为低后查询模块当前已否已经处于重新注册状态
+				if(1 == handle_cmd_return_data("AT+JOIN?", 1, 1))
+				{
+					confirm_continue_failure_count = handle_cmd_return_data("AT+STATUS0?", 37, 2);
+				}
+				else
+				{
+					// 确认模块已发起重新注册，则清除之前的入网状态标致和确认帧连续失败计数
+					node_join_successfully = false;
+					confirm_continue_failure_count = 0;
+#ifdef DEBUG_LOG_LEVEL_1
+					DEBUG_PRINTF("Start Rejoin...\r\n");
+#endif					
+					node_join_successfully = node_block_join(300);
+					
+					return NODE_COMM_NO_ACK;
+				}
+			}
+		}
+	}while(low == node_gpio_read(busy));
+
+	// 11.通过STAT引脚判断当前通信状态
+	if(low == node_gpio_read(stat))
+	{
+		// 若该包为确认帧且未收到ACK，则确认帧连续失败计数加一
+		confirm_continue_failure_count += 1;
+		return NODE_COMM_NO_ACK;
+	}
+	else
+	{
+		confirm_continue_failure_count = 0;
+		return NODE_COMM_SUCC;
+	}
+}
+
+
+/**
 * 发送最一个分包并等待AS应答（仅供node_block_send_big_packet函数调用）
 *@param		packet_end: 最后一个分包的地址
 *@param		size: 最后一个分包的长度
@@ -558,7 +777,7 @@ static uint32_t wait_as_respone(uint8_t *packet_end, uint8_t size, uint8_t packe
 #endif
 		
 		_list_head = NULL;
-		node_block_send(UNCONFIRM_TYPE | 0x01, packet_end, size, &_list_head);	
+		node_block_send(packet_end, size, &_list_head);	
 
 		list_tmp = _list_head;
 		
@@ -648,18 +867,6 @@ static uint32_t wait_as_respone(uint8_t *packet_end, uint8_t size, uint8_t packe
 	return receive_success_bit;
 }
 
-/**
-* 解析部分查询指令的返回值（仅供驱动内部调用）
-*/
-static uint8_t handle_cmd_return_data(char *data, uint8_t start, uint8_t length)
-{
-	static uint8_t inquire_return_data[150];
-	
-	memset(inquire_return_data, 0, 150);
-	transfer_inquire_command(data, inquire_return_data);
-
-	return htoi((inquire_return_data + start), 2);	
-}
 
 /**
 * 模块硬件复位，不建议用户直接使用该函数，建议用户使用node_hard_reset_and_configure()来硬复位模块
@@ -678,6 +885,44 @@ static void node_hard_reset(void)
 }
 
 
+/**
+*@brief		获取模块的通信结果并打印
+*@param		send_result：模块的通信结果
+*@return	NULL
+*@author	范良洪
+ */
+void commResultPrint(execution_status_t send_result)
+{
+	debug_printf("send_result = %d, ",send_result);
+	switch(send_result)
+	{
+		case NODE_COMM_SUCC:
+			debug_printf("node comm success.\r\n");
+		break;
+		case NODE_NOT_JOINED:
+			debug_printf("node not joined.\r\n");
+		break;
+		case NODE_COMM_NO_ACK:
+			debug_printf("node comm no ack.\r\n");
+		break;
+		case NODE_BUSY_BFE_RECV_UDATA:
+			debug_printf("node keep busy before recv user's data.\r\n");
+		break;
+		case NODE_BUSY_ATR_COMM:
+			debug_printf("node keep busy after comm.\r\n");
+		break;
+		case NODE_IDLE_ATR_RECV_UDATA:
+			debug_printf("node keep idle atfer recv usr's data.\r\n");
+		break;
+		case USER_DATA_SIZE_WRONG:
+			debug_printf("usr's data size is wrong.\r\n");
+		break;
+		default:
+		break;
+	}
+}
+
+
 /*------------------------------------------------------------------------------
 |>                        以下为给用户提供的调用函数                          <|
 ------------------------------------------------------------------------------*/
@@ -686,6 +931,55 @@ static void node_hard_reset(void)
   * @brief ICA模块驱动的用户API接口,主要包括操作模块进行复位、AT参数配置、入网、发送数据等
   * @{
   */
+
+
+/**
+*  设置模块的引脚电平
+*@param 	type: 表示设置的是WAKE引脚还是STAT引脚
+*@param 	value: 表示设置对应引脚的高低电平
+*/
+void node_gpio_set(node_gpio_t type, node_status_t value)
+{
+	if(mode == type)
+	{
+		if(command == value)
+		{
+			if(GET_MODE_LEVEL == GPIO_PIN_RESET)
+			{
+				SET_MODE_HIGH;
+				system_delay_ms(10);
+			}			
+		}
+		else if(transparent == value)
+		{
+			if(GET_MODE_LEVEL == GPIO_PIN_SET)
+			{
+				SET_MODE_LOW;
+				system_delay_ms(10);				
+			}			
+		}
+	}
+	else if(wake == type)
+	{
+		if(wakeup == value)
+		{
+			if(GET_WAKE_LEVEL == GPIO_PIN_RESET)
+			{
+				SET_WAKE_HIGH;	
+				system_delay_ms(10);				
+			}
+		}
+		else if(sleep == value)
+		{
+			if(GET_WAKE_LEVEL == GPIO_PIN_SET)
+			{
+				SET_WAKE_LOW;
+				system_delay_ms(10);
+			}	
+		}		
+	}
+}
+
 
 /**
  * @brief   硬件复位
@@ -698,6 +992,29 @@ void node_hard_reset_and_configure(void)
 	node_hard_reset();
 	hot_start_check();
 }
+
+
+/**
+*@brief		配置指令并打印配置结果
+*@param		str: 需要配置的指令
+*@return	true: 配置成功; false: 配置失败
+ */
+bool nodeCmdConfig(char *str)
+{
+	return transfer_configure_command(str);
+}
+
+
+/**
+*@brief		查询指令并打印查询结果
+*@param		str: 需要查询的指令; content: 返回的指令内容
+*@return	true: 查询成功; false: 查询失败
+ */
+bool nodeCmdInqiure(char *str,uint8_t *content)
+{
+	return transfer_inquire_command(str,content);
+}
+
 
 /**
  * @brief   配置模块不保存的指令
@@ -734,28 +1051,14 @@ bool unsave_cmd_configure(void)
 bool save_cmd_configure(void)
 {
 	bool result_tmp = true;
-	uint8_t i = 0;
 	
-	for(i = 0; i < sizeof(at_command_array_save) / sizeof(char *); i++)
-	{
-		if(NULL != at_command_array_save[i])
-		{
-			result_tmp &= transfer_configure_command((char *)at_command_array_save[i]);
-		}
-	}
-
-#ifdef USE_NODE_STATUS
-	/* 使用本驱动时，若开启模块STATUS状态输出功能，以下两条指令不能删除 */
-	result_tmp &= transfer_configure_command("AT+STATUS=1,1");
-	result_tmp &= transfer_configure_command("AT+STATUS=2,2");
-#else
-	result_tmp &= transfer_configure_command("AT+STATUS=1,0");
-	result_tmp &= transfer_configure_command("AT+STATUS=2,0");
-#endif
-	result_tmp &= transfer_configure_command("AT+SAVE");
+	result_tmp &= transfer_configure_command("AT+DEVEUI=802E8FCA9CBEEA4E,D391010220102816,1");
+	result_tmp &= transfer_configure_command("AT+APPEUI=7435516C8A2D41ED");
+	result_tmp &= transfer_configure_command("AT+APPKEY=ACF54984945BD8707D61539657C9FDA3");
 	
 	return result_tmp;	
 }
+
 
 /**
  * @brief   模块上电初始
@@ -789,76 +1092,28 @@ bool node_configure(void)
 	return result_tmp;
 }
 
+
 /**
- * @brief   入网扫描
- * @details 以阻塞的形式进行入网扫描
- * @param   [IN]time_second: 入网超时时间，单位：秒
- * @return  返回入网的结果
- * @retval		true:  入网成功
- * @retval		false: 入网失败
- *
- * @par 示例:
- * 下面显示如何调用该API，进行入网扫描
- * @code
- * // 复位节点并入网扫描，超时时间设置为300秒（超时时间可平衡功耗与入网成功率设定）
- * if(node_block_join(300) == true)
- * {
- *   // 已成功入网
- * }
- * else
- * {
- *	 // 入网失败
- * }
- * @endcode
+*@brief		模块入网配置并打印入网结果
+*@param		time_second: 入网超时时间; errfalg: 失败标志
+*@return	NULL
+*@author	范良洪
  */
-bool node_block_join(uint16_t time_second)
+bool nodeJoinNet(uint16_t time_second)
 {
-	gpio_level_t stat_level;
-	gpio_level_t busy_level;
-	
-#ifdef DEBUG_LOG_LEVEL_1
-	DEBUG_PRINTF("Start to join...\r\n");
-#endif
-
-	// 1.切换到透传模式开始入网
-	node_gpio_set(mode, transparent);
-	
-	timeout_start_flag = true;
-	do
+	debug_printf("node is joining...\r\n");
+	if(node_block_join(time_second))
 	{
-		// 2.循环查询STAT和BUSY引脚电平
-		stat_level = node_gpio_read(stat);
-		busy_level = node_gpio_read(busy);
-		
-		// 3.到达设定时间后若未入网则超时返回
-		if(true == time_out_break_ms(time_second * 1000))
-		{
-			node_gpio_set(wake, sleep);
-			DEBUG_PRINTF("Join failure\r\n");
-			return false;
-		}
-	}while(high != stat_level || high != busy_level); 
-
-#ifdef USE_NODE_STATUS
-	UART_RECEIVE_FLAG = 0;
-	
-	timeout_start_flag = true;
-	while(0 == UART_RECEIVE_FLAG && false == time_out_break_ms(50));
-	
-	if(1 == UART_RECEIVE_FLAG)
-	{
-		UART_RECEIVE_FLAG = 0;
-		last_up_datarate = UART_RECEIVE_BUFFER[4];
+		debug_printf("node join ok within %ds.",time_second);
+		return true;
 	}
-#endif	
-
-#ifdef DEBUG_LOG_LEVEL_1
-	DEBUG_PRINTF("Join seccussfuly\r\n");
-#endif
-	// 5.若未超时返回则表明模块入网成功
-	node_join_successfully = 1;
-	return true;
+	else
+	{
+		debug_printf("node join net fail within %ds." ,time_second);
+		return false;
+	}
 }
+
 
 /**
  * @brief   复位节点并入网扫描
@@ -998,188 +1253,22 @@ void free_down_info_list(down_list_t **list_head, free_level_t free_level)
 	*list_head = NULL;
 }
 
+
 /**
- * @brief   以阻塞的形式发送数据
- * @details 
- * @param	[IN]frame_type: 十六进制，表示本次发送的帧类型和发送次数\n
-						高四位：要发送的帧为确认帧(0001)还是非确认(0000),\n
-						低四位：若确认帧，则表示未收到ACK的情况下共发送的次数；若为非确认，则表示总共需发送的次数
- * @param   [IN]buffer: 要发送的数据包的内容
- * @param	[IN]size: 要发送的数据包的长度
- * @param	[OUT]list_head: 指向下行信息的链表头的指针，指向的链表中只有包含业务数据或在开启模块的STATUS指令是不包含业务数据的最后一条信息
- * @return  本次通信的状态
- * @retval		00000001B -01- COMMUNICATION_SUCCESSS：通信成功
- * @retval		00000010B -02- NO_JOINED：模块未入网
- * @retval		00000100B -04- COMMUNICATION_FAILURE：确认帧未收到ACK
- * @retval		00001000B -08- NODE_BUSY：模块当前处于忙状态
- * @retval		00010000B -16- NODE_EXCEPTION：模块处于异常状态
- * @retval		00100000B -32- NODE_NO_RESPONSE：模块串口无响应
- * @retval		01000000B -64- PACKET_LENGTH_ERROR：数据包长度错误
- *
- * @par 示例:
- * 下面显示如何调用该API，发送数据
- *
- * @code
- * uint8_t test_data[100];
- * down_list_t *head = NULL;
- * execution_status_t send_result;
- *
- * //发送51字节确认帧数据，重发次数为4次
- * send_result = node_block_send(CONFIRM_TYPE | 0x04, test_data, 51, &head);
- * DEBUG_PRINTF("Send result: %02x \n", send_result);
- * @endcode
+*@brief		模块数据通信并打印通信结果
+*@param		frame_type: 帧类型和重发次数; buffer: 用户数据; size: 用户数据大小; list_head: 下行数据链表
+*@return	send_result：模块的通信结果
+*@author	范良洪
  */
-execution_status_t node_block_send(uint8_t frame_type, uint8_t *buffer, uint8_t size, down_list_t **list_head)
+execution_status_t nodeDataCommunicate(uint8_t *buffer, uint8_t size, down_list_t **list_head)
 {
-	static uint8_t max_timeout = 0;
-	static uint8_t last_frame_tpye = 0;
-	static char comfirm_cmd[15] = {0};
-	static uint8_t abnormal_count = 0;
-	
-	/* 若连续多次发生，发数据前模块一直忙或模块串口无响应，则复位模块并重新入网*/
-	if(abnormal_count > ABNORMAL_CONTINUOUS_COUNT_MAX)
-	{
-		abnormal_count = 0;
-		node_reset_block_join(300);
-	}
-	
-	free_down_info_list(list_head, all_list);
-
-	// 1.发送数据前先判断模块是否入网
-	if(false == node_join_successfully)
-	{
-		return NO_JOINED; 
-	}
-	// 2.判断传入的数据长度是否正确 
-	if(0 == size)
-	{
-		return PACKET_LENGTH_ERROR; 
-	}
-	
-	// 3.拉高或保持WAKE脚为高
-	node_gpio_set(wake, wakeup);
-	
-	// 4.判断本次要发送的帧类型是否有更改
-	if(frame_type != last_frame_tpye || 1 == node_reset_signal.Bits.frame_type_modify)
-	{
-		node_reset_signal.Bits.frame_type_modify = 0;
-		max_timeout = frame_type >> 4 == 0x01 ? (frame_type & 0x0f) * 9 : (frame_type & 0x0f) * 7;	
-		max_timeout = max_timeout == 0 ? 10 : max_timeout;
-		sprintf(comfirm_cmd, "AT+CONFIRM=%d,%d", frame_type >> 4, frame_type & 0x0f);
-		transfer_configure_command(comfirm_cmd);
-	}
-	
-	last_frame_tpye = frame_type;
-	
-	// 5.切到透传模式
-	node_gpio_set(mode, transparent);
-	
-	// 6.发送数据前判断模块BUSY状态，若为忙则等待TIMEOUT后返回
-	timeout_start_flag = true;
-	while(low == node_gpio_read(busy))
-	{
-		if(true == time_out_break_ms(max_timeout * 1000))
-		{
-			abnormal_count++;
-			return NODE_BUSY;
-		}
-	}
-	// 7.通过串口向模块发送数据
-	transfer_node_data(buffer, size);
-	// 8.判断模块BUSY是否拉低，若1s内未拉低，则模块串口异常
-	timeout_start_flag = true;
-	while(high == node_gpio_read(busy))
-	{
-		if(true == time_out_break_ms(1000))
-		{
-			abnormal_count++;
-			return NODE_NO_RESPONSE;
-		}
-	}
-	
-	abnormal_count = 0;
-	
-	// 9.等待BUSY拉高
-	do
-	{
-		timeout_start_flag = true;
-		while(low == node_gpio_read(busy))
-		{
-			if(true == time_out_break_ms(max_timeout * 1000))
-			{
-				return NODE_EXCEPTION;
-			}
-		}
-		
-		timeout_start_flag = true;
-		while(0 == UART_RECEIVE_FLAG)
-		{
-			if(true == time_out_break_ms(300))
-			{
-				break;
-			}
-		}
-		
-		if(1 == UART_RECEIVE_FLAG && UART_RECEIVE_LENGTH > 0)
-		{
-			UART_RECEIVE_FLAG = 0;
-#ifdef DEBUG_LOG_LEVEL_1
-			uint8_t tmp = 0;
-			DEBUG_PRINTF("[RECEIVE] ");
-			for(tmp = 0; tmp < UART_RECEIVE_LENGTH; tmp++)
-			{
-				DEBUG_PRINTF("%02x ", UART_RECEIVE_BUFFER[tmp]);	
-			}
-			DEBUG_PRINTF("\r\n");
-#endif
-			down_data_process(list_head);
-		}
-		else
-		{
-			UART_RECEIVE_LENGTH = 0;
-		}
-		
-		if(31 == confirm_continue_failure_count)
-		{
-			if(low == node_gpio_read(busy) && UART_RECEIVE_LENGTH < 10)
-			{
-				// 判断BUSY脚为低后查询模块当前已否已经处于重新注册状态
-				if(1 == handle_cmd_return_data("AT+JOIN?", 1, 1))
-				{
-					confirm_continue_failure_count = handle_cmd_return_data("AT+STATUS0?", 37, 2);
-				}
-				else
-				{
-					// 确认模块已发起重新注册，则清除之前的入网状态标致和确认帧连续失败计数
-					node_join_successfully = false;
-					confirm_continue_failure_count = 0;
-#ifdef DEBUG_LOG_LEVEL_1
-					DEBUG_PRINTF("Start Rejoin...\r\n");
-#endif					
-					node_join_successfully = node_block_join(300);
-					
-					return COMMUNICATION_FAILURE;
-				}
-			}
-		}
-	}while(low == node_gpio_read(busy));
-
-	// 11.通过STAT引脚判断当前通信状态
-	if(low == node_gpio_read(stat))
-	{
-		// 若该包为确认帧且未收到ACK，则确认帧连续失败计数加一
-		if(0x01 == frame_type >> 4)
-		{
-			confirm_continue_failure_count += 1;
-		}
-		return COMMUNICATION_FAILURE;
-	}
-	else
-	{
-		confirm_continue_failure_count = 0;
-		return COMMUNICATION_SUCCESSS;
-	}
+	execution_status_t send_result;
+	debug_printf("--send message: %s--size: %d\r\n", buffer, strlen((char*)buffer));
+	send_result = node_block_send(buffer, size, list_head);
+	commResultPrint(send_result);
+	return send_result;
 }
+
 
 /**
  * @brief   带模块休眠的发送函数
@@ -1217,7 +1306,7 @@ execution_status_t node_block_send_lowpower(uint8_t frame_type, uint8_t *buffer,
 	execution_status_t status_result;
 
 	// 1.调用node_block_send函数发送数据并得到返回
-	status_result = node_block_send(frame_type, buffer, size, list_head);
+	status_result = node_block_send(buffer, size, list_head);
 	// 2.发送数据完成后休眠模块
 	node_gpio_set(wake, sleep);
 		
@@ -1396,7 +1485,7 @@ bool node_block_send_big_packet(uint8_t *buffer, uint16_t size, uint8_t resend_n
 #endif
 					
 					single_list = NULL;
-					node_block_send(UNCONFIRM_TYPE | 0x01, spilt_packet_data, packet_length[j], &single_list);
+					node_block_send(spilt_packet_data, packet_length[j], &single_list);
 					
 					// 以下代码段为使用链表对接收到的模块串口数据做相应的处理，只保留有业务数据的部分
 					single_list_head = single_list;

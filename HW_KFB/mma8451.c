@@ -6,12 +6,9 @@
 
 #include "mma8451.h"
 #include "hdc1000.h"
-#include "lowpower.h"
+#include "common.h"
 
-extern uint8_t TimeOut_Sign;
 extern int8_t Error_num;
-
-
 
 I2C_HandleTypeDef mma8451;
 

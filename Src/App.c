@@ -7,20 +7,15 @@
 #include "lowpower.h"
 #include "atcmd.h"
 #include "tim.h"
+#include "lsd_lorawan_driver.h"
 
-extern uint8_t TimeOut_Sign;  //Timeout sign
-uint8_t Send_Sate_Sign = 0;
 
-int8_t send_log = 0; //send data log number
-
-uint8_t cmdwakeflg = 0;//Command mode sleep flag
- 
 extern TIM_HandleTypeDef TIM6_InitStruct;
 
 extern usart_recv_t Usart2_RX; 
 extern usart_recv_t LPUsart1_RX;
 
-DEVICE_FUNCTION device_func = POWER_ON_FUNC;
+DEVICE_FUNCTION device_func = NO_FUNC;
 DEVICE_FUNCTION *Device_Sate_str = &device_func; 
 
 extern Node_Info *LoRa_Node_str;
@@ -35,32 +30,77 @@ extern uint8_t at_id;
 //-----------------Users application--------------------------
 void lr_func_achive(void)
 {
-	static DEVICE_FUNCTION dev_stat = 0;//Joindebug:Used to send join information
-    char *Send_Context = "012345678998765432100123456789987654321001234567899876543210abcdefghijklmnopqrstuvwxyz";
-    static uint8_t timsend_enter = 0;
-    static uint32_t comm_total_data = 0, comm_succ_data = 0;
-    uint32_t join_start_time = 0, join_end_time = 0;
-    
-	lr_borad_information_print();    //使用说明
+	static DEVICE_FUNCTION dev_stat = 0;
+	execution_status_t send_result;
+	down_list_t *pphead = NULL;
 	
+	lr_borad_information_print();    //使用说明	
 	switch((uint8_t)device_func)
 	{
-		case POWER_ON_FUNC:   //接收PC发送的数据
-		{
+		/* 指令配置功能 */
+		case CMD_CONFIG_FUNC:  			
+		{	
+			/* 如果不是command Configuration function, 则进入该函数,只执行一次 */
+			if(dev_stat != CMD_CONFIG_FUNC)
+			{
+				dev_stat = CMD_CONFIG_FUNC;
+				debug_printf("Now is command configuration function.\r\n");
+				node_gpio_set(wake, wakeup);
+				node_gpio_set(mode, command);
+			}
+			/* 等待usart2产生中断 */
 			if(Usart2_RX.receive_flag)
 			{
 				Usart2_RX.receive_flag = 0;
-				debug_printf("--> Tips: Please select K1 first, switch to command mode!\r\n");
+				lpusart1_send_data(Usart2_RX.RX_Buf,Usart2_RX.rx_len);
+			} 
+			/* 等待lpuart1产生中断 */
+			if(LPUsart1_RX.receive_flag)
+			{
+				LPUsart1_RX.receive_flag = 0;
+				usart2_send_data(LPUsart1_RX.RX_Buf,LPUsart1_RX.rx_len);
 			}
 		}
 		break;
 		
+		/* 数据传输功能 */
+		case DATA_TRANSPORT_FUNC:
+		{   
+			/* 如果不是data transport function,则进入该函数,只执行一次 */
+			if(dev_stat != DATA_TRANSPORT_FUNC)
+			{
+				dev_stat = DATA_TRANSPORT_FUNC;
+				debug_printf("Now is data transport function.\r\n");
+				
+				/* 模块入网判断 */
+				if(nodeJoinNet(JOIN_TIME_120_SEC) == false)
+				{
+					return;
+				}
+			}
+			/* 等待usart2产生中断 */
+			if(Usart2_RX.receive_flag && GET_BUSY_LEVEL)  //Ensure BUSY is high before sending data
+            {
+				Usart2_RX.receive_flag = 0;
+				send_result = nodeDataCommunicate((uint8_t*)Usart2_RX.RX_Buf, Usart2_RX.rx_len, &pphead);
+			}
+			/* 如果模块正忙, 则发送数据无效，并给出警告信息 */
+			else if(Usart2_RX.receive_flag && (LORANODE_BUSY_STATUS == 0))
+            {
+                Usart2_RX.receive_flag = 0;
+                debug_printf("--> Warning: Don't send data now! The modem is busy!\r\n");
+            }
+		} 
+		break;
+		
+		/*Class C数据下行功能*/
 		case DATA_REPORT_ONE_TIME_FUNC:
 		{      
 			
 		} 
 		break;
 		
+		/* 数据周期上报功能 */
 		case DATA_REGU_REPORT_FUNC:
 		{
 			

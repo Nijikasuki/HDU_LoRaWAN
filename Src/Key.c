@@ -54,13 +54,13 @@ void KEY_DO(KEY *key_temp,DEVICE_FUNCTION *device_func_temp)
 		key_temp->A_KEY1 = 0;	
 		switch((uint8_t)*device_func_temp)
 		{		
-			case POWER_ON_FUNC:
+			case CMD_CONFIG_FUNC:
 				*device_func_temp = DATA_REPORT_ONE_TIME_FUNC;
-				break;
+			break;
 
 			case DATA_REPORT_ONE_TIME_FUNC:
-				*device_func_temp = POWER_ON_FUNC;
-				break;
+				*device_func_temp = CMD_CONFIG_FUNC;
+			break;
 		}
 	}
 	else if(key_temp->A_KEY2 == 1)
@@ -68,13 +68,13 @@ void KEY_DO(KEY *key_temp,DEVICE_FUNCTION *device_func_temp)
 		key_temp->A_KEY2 = 0;	
 		switch((uint8_t)*device_func_temp)
 		{		
-			case POWER_ON_FUNC:
+			case CMD_CONFIG_FUNC:
 				*device_func_temp = DATA_REPORT_ONE_TIME_FUNC;
-				break;
+			break;
 			
 			case DATA_REGU_REPORT_FUNC:
-				*device_func_temp = POWER_ON_FUNC;
-				break;
+				*device_func_temp = CMD_CONFIG_FUNC;
+			break;
 		}
 	}		
 }

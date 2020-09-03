@@ -2,8 +2,16 @@
 #define __APP_H
 #include "stdint.h"
 
+
+/** 串口接收内容长度最大值 512字节 */
+#define USART_RECV_LEN_MAX 512
+
+/** 入网超时时间：120s */
+#define JOIN_TIME_120_SEC  120
+
 typedef enum {
-	POWER_ON_FUNC = 0,
+	CMD_CONFIG_FUNC = 0,
+	DATA_TRANSPORT_FUNC,
 	DATA_REPORT_ONE_TIME_FUNC,
 	DATA_REGU_REPORT_FUNC,
     NO_FUNC

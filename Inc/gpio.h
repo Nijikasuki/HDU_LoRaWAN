@@ -110,7 +110,36 @@
 #define Pin_STAT     GPIO_PIN_4
 #define Pin_RST      GPIO_PIN_1
 		
-		
+/** 读取连接模块WAKE引脚的电平 */
+#define GET_WAKE_LEVEL		HAL_GPIO_ReadPin(Gpio_WAKE, Pin_WAKE)
+
+/** 读取连接模块MODE引脚的电平 */
+#define GET_MODE_LEVEL		HAL_GPIO_ReadPin(Gpio_MODE, Pin_MODE)
+
+/** 读取连接模块BUSY引脚的电平 */
+#define GET_BUSY_LEVEL		HAL_GPIO_ReadPin(Gpio_BUSY, Pin_BUSY)
+
+/** 读取连接模块STAT引脚的电平 */
+#define GET_STAT_LEVEL		HAL_GPIO_ReadPin(Gpio_STAT, Pin_STAT)
+
+/** 设置连接模块WAKE引脚的为高电平 */
+#define SET_WAKE_HIGH		HAL_GPIO_WritePin(Gpio_WAKE, Pin_WAKE, GPIO_PIN_SET)
+
+/** 设置连接模块WAKE引脚的为低电平 */
+#define SET_WAKE_LOW		HAL_GPIO_WritePin(Gpio_WAKE, Pin_WAKE, GPIO_PIN_RESET)
+
+/** 设置连接模块MODE引脚的为高电平 */
+#define SET_MODE_HIGH		HAL_GPIO_WritePin(Gpio_MODE, Pin_MODE, GPIO_PIN_SET)
+
+/** 设置连接模块MODE引脚的为低电平 */
+#define SET_MODE_LOW		HAL_GPIO_WritePin(Gpio_MODE, Pin_MODE, GPIO_PIN_RESET)
+
+/** 设置连接模块RESET引脚的为高电平 */
+#define SET_RESET_HIGH		HAL_GPIO_WritePin(Gpio_RST, Pin_RST, GPIO_PIN_SET)
+
+/** 设置连接模块RESET引脚的为低电平 */
+#define SET_RESET_LOW		HAL_GPIO_WritePin(Gpio_RST, Pin_RST, GPIO_PIN_RESET)
+
 //-------------Key1\Key2 Macro definition-----------------------------------------
 #define Gpio_KEY1   GPIOC
 #define Gpio_KEY2   GPIOE

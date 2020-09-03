@@ -6,7 +6,7 @@
 
 #include "MPL3115.h"
 #include "hdc1000.h"
-#include "lowpower.h"
+#include "common.h"
 
 extern uint8_t TimeOut_Sign;
 extern int8_t Error_num;
@@ -26,11 +26,11 @@ static void MPL3115_Write_Buffer(uint8_t addr, uint8_t *buffer, uint8_t buf_len)
 	
 	while(HAL_I2C_Master_Transmit(MPL3115_Handle, MPL3115_WRITE_MODE, tBuf, 2, 1000) != HAL_OK)
 	{
-	if(Time_Out_Break(500) == 1)
-	{
-		Error_num = -17;
-		break;
-	}
+		if(Time_Out_Break(500) == 1)
+		{
+			Error_num = -17;
+			break;
+		}
 	}
 	TimeOut_Sign = 0;
 }
