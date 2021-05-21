@@ -66,41 +66,35 @@
 #define GET_KEY2_LEVEL		    HAL_GPIO_ReadPin(Gpio_KEY2,Pin_KEY2)
 
 //----------LED OF WAKE\MODE\BUSY\STAT\RST Macro definition-------------------------
-#define LedGpio_WAKE GPIOD
-#define LedGpio_MODE GPIOA
-#define LedGpio_BUSY GPIOE
-#define LedGpio_STAT GPIOB
-#define LedPin_WAKE  GPIO_PIN_7	 
-#define LedPin_MODE  GPIO_PIN_10	 
-#define LedPin_BUSY  GPIO_PIN_0
-#define LedPin_STAT  GPIO_PIN_1
+#define LedGpio_D6		GPIOD
+#define LedGpio_D7    	GPIOA
+#define LedGpio_D8		GPIOB
+#define LedGpio_D11		GPIOE
+#define LedPin_D6  		GPIO_PIN_7	 
+#define LedPin_D7  		GPIO_PIN_10	 
+#define LedPin_D8 		GPIO_PIN_1
+#define LedPin_D11 		GPIO_PIN_0
 
-#define GET_LED_WAKE_LEVEL		HAL_GPIO_ReadPin(LedGpio_WAKE, LedPin_WAKE)
-#define GET_LED_MODE_LEVEL		HAL_GPIO_ReadPin(LedGpio_MODE,LedPin_MODE)
-#define GET_LED_BUSY_LEVEL		HAL_GPIO_ReadPin(LedGpio_BUSY,LedPin_BUSY)
-#define GET_LED_STAT_LEVEL		HAL_GPIO_ReadPin(LedGpio_STAT,LedPin_STAT)
+#define GET_LED_WAKE_LEVEL		HAL_GPIO_ReadPin(LedGpio_D6, LedPin_D6)
+#define GET_LED_MODE_LEVEL		HAL_GPIO_ReadPin(LedGpio_D7,LedPin_D7)
+#define GET_LED_BUSY_LEVEL		HAL_GPIO_ReadPin(LedGpio_D8,LedPin_D8)
+#define GET_LED_STAT_LEVEL		HAL_GPIO_ReadPin(LedGpio_D11,LedPin_D11)
 
-#define LEDWAKE_ON   HAL_GPIO_WritePin(LedGpio_WAKE, LedPin_WAKE, GPIO_PIN_RESET)
-#define LEDWAKE_OFF  HAL_GPIO_WritePin(LedGpio_WAKE, LedPin_WAKE, GPIO_PIN_SET)
+#define LEDWAKE_ON   HAL_GPIO_WritePin(LedGpio_D6, LedPin_D6, GPIO_PIN_RESET)
+#define LEDWAKE_OFF  HAL_GPIO_WritePin(LedGpio_D6, LedPin_D6, GPIO_PIN_SET)
 
-#define LEDMODE_ON   HAL_GPIO_WritePin(LedGpio_MODE, LedPin_MODE, GPIO_PIN_RESET)
-#define LEDMODE_OFF  HAL_GPIO_WritePin(LedGpio_MODE, LedPin_MODE, GPIO_PIN_SET)
+#define LEDMODE_ON   HAL_GPIO_WritePin(LedGpio_D7, LedPin_D7, GPIO_PIN_RESET)
+#define LEDMODE_OFF  HAL_GPIO_WritePin(LedGpio_D7, LedPin_D7, GPIO_PIN_SET)
 
-#define LEDBUSY_ON   HAL_GPIO_WritePin(LedGpio_BUSY, LedPin_BUSY, GPIO_PIN_RESET)
-#define LEDBUSY_OFF  HAL_GPIO_WritePin(LedGpio_BUSY, LedPin_BUSY, GPIO_PIN_SET)
+#define LEDBUSY_ON   HAL_GPIO_WritePin(LedGpio_D8, LedPin_D8, GPIO_PIN_RESET)
+#define LEDBUSY_OFF  HAL_GPIO_WritePin(LedGpio_D8, LedPin_D8, GPIO_PIN_SET)
 
-#define LEDSTAT_ON   HAL_GPIO_WritePin(LedGpio_STAT, LedPin_STAT, GPIO_PIN_RESET)
-#define LEDSTAT_OFF  HAL_GPIO_WritePin(LedGpio_STAT, LedPin_STAT, GPIO_PIN_SET)
+#define LEDSTAT_ON   HAL_GPIO_WritePin(LedGpio_D11, LedPin_D11, GPIO_PIN_RESET)
+#define LEDSTAT_OFF  HAL_GPIO_WritePin(LedGpio_D11, LedPin_D11, GPIO_PIN_SET)
 
-#define LEDALL_ON    HAL_GPIO_WritePin(LedGpio_WAKE, LedPin_WAKE, GPIO_PIN_RESET);\
-					 HAL_GPIO_WritePin(LedGpio_MODE, LedPin_MODE, GPIO_PIN_RESET);\
-					 HAL_GPIO_WritePin(LedGpio_BUSY, LedPin_BUSY, GPIO_PIN_RESET);\
-					 HAL_GPIO_WritePin(LedGpio_STAT, LedPin_STAT, GPIO_PIN_RESET)
+#define LEDALL_ON    
 
-#define LEDALL_OFF   HAL_GPIO_WritePin(LedGpio_WAKE, LedPin_WAKE, GPIO_PIN_SET);\
-					 HAL_GPIO_WritePin(LedGpio_MODE, LedPin_MODE, GPIO_PIN_SET);\
-					 HAL_GPIO_WritePin(LedGpio_BUSY, LedPin_BUSY, GPIO_PIN_SET);\
-					 HAL_GPIO_WritePin(LedGpio_STAT, LedPin_STAT, GPIO_PIN_SET)
+#define LEDALL_OFF   
 
 //----------WAKE\MODE\BUSY\STAT\RST Macro definition-------------------------
 #define Gpio_WAKE    GPIOC

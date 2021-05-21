@@ -40,10 +40,11 @@
 #include "opt3001.h"
 #include "MPL3115.h"
 #include "mma8451.h"
+#include "ST7789v.h"
+#include "XPT2046.h"
+#include "Lcd_App.h"
 /* USER CODE BEGIN 0 */
-uint8_t LCD_EN = 0; 
-uint8_t LAN_EN = 0;
-
+extern uint8_t LCD_EN;
 /* USER CODE END 0 */
 
 /**
@@ -53,15 +54,17 @@ uint8_t LAN_EN = 0;
 */
 int main(void)
 {
-    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
     HAL_Init();
-    /* Configure the system clock */
+	
+    /* 系统时钟配置 */
     SystemClock_Config();
-    /* Initialize all configured peripherals */	
+	
+    /* 外设初始化 */	
     MX_GPIO_Init();
     MX_DMA_Init();
     MX_RTC_Init();
-    /*-----串口初始化-----------*/	
+	
+    /** -----串口初始化-------*/	
     mx_lpusart1_uart_init(9600);  //MCU与模块相连串口
     mx_usart2_uart_init(115200);  //MCU与PC相连串口
 	MX_I2C1_Init();
@@ -70,21 +73,45 @@ int main(void)
     lpusart1_clear_it();         //清除中断并开启空闲中断
     usart2_clear_it();           //清除中断并开启空闲中断
     
-	/* 温湿度传感器 */
+	/** 温湿度传感器 */
 	HDC1000_Init();
-	/* 光强传感器 */
+	
+	/** 光强传感器 */
 	OPT3001_Init();
-	/* 气压传感器 */
+	
+	/** 气压传感器 */
 	MPL3115_Init(MODE_BAROMETER);
-	/* 加速度传感器 */
+	
+	/** 加速度传感器 */
 	MMA8451_Init();
 	
+	if(HAL_GPIO_ReadPin(GPIOD,GPIO_PIN_2) == 1 && HAL_GPIO_ReadPin(GPIOD,GPIO_PIN_0) == 1)
+	{
+		LCD_EN = 1;
+		
+	}else
+  	{
+  		LCD_EN = 0;
+  	}
+
+
+  
+  if(LCD_EN)   //如果有液晶，需要进行初始化
+  {
+  	ST7789V_INIT();
+  	XPT2046_init();
+	MX_TIM15_Init(1500);
+	LCD_Test();
+	Touch_Adjust();
+  }
+  
     HAL_Delay(500);              //模块上电初始化时间   
 
-	/* 复位模块 */
+	/** 复位模块 */
 	nodeHardReset();
 	
-	lorawan_borad_infor_print();    //使用说明	
+	/** 开发板信息打印 */
+	lorawan_borad_infor_print(); 
 	
     /* Infinite loop */
     /* USER CODE BEGIN WHILE  */

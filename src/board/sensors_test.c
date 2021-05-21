@@ -11,7 +11,7 @@ int8_t Error_num = 0;
 void Test_task(void)
 {
 	HDC1000_Test();
-	OPT3003_Test();
+	OPT3001_Test();
 	MPL3115_Test();
 	MMA8451_Test();
 	LORA_NODE_Test();
@@ -28,7 +28,7 @@ void HDC1000_Test(void)
 	{
 		if(temper !=0 || humi!=0)
 		{
-			debug_printf("温湿度传感器正常 温度: %.3f ℃   湿度: %.3f % \r\n",(double)temper/1000.0,(double)humi/1000.0);
+			debug_printf("温湿度传感器正常 温度: %.3f ℃   湿度: %.3f%% \r\n",(double)temper/1000.0,(double)humi/1000.0);
 		}else
 			{
 				Error_num = -13;
@@ -42,7 +42,7 @@ void HDC1000_Test(void)
 	Error_num = 0;
 }
 
-void OPT3003_Test(void)
+void OPT3001_Test(void)
 {
 	float lux;
 	uint16_t result;

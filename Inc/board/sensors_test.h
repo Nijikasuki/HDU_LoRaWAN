@@ -6,7 +6,7 @@
 
 void Test_task(void);
 void HDC1000_Test(void);
-void OPT3003_Test(void);
+void OPT3001_Test(void);
 void MPL3115_Test(void);
 void MMA8451_Test(void);
 void LORA_NODE_Test(void);

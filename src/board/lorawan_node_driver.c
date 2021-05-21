@@ -22,12 +22,17 @@
   
 /** 模块是否已成功入网 */
 bool node_join_successfully = false;
+
 /** 确认帧连续失败次数 */
 uint8_t confirm_continue_failure_count = 0;
+
 /** 最后一条上行数据的速率 */
 int8_t last_up_datarate = -1;
+
 /** 终端不复位的情况下对模块复位的信号量 */
 node_reset_single_t node_reset_signal;
+
+extern DEVICE_MODE_T device_mode;
 
 /**
   * @}
@@ -39,6 +44,7 @@ static void node_gpio_set(node_gpio_t type, node_status_t value);
 static bool transfer_configure_command(char *cmd);
 static bool transfer_inquire_command(char *cmd, uint8_t *result);
 static uint8_t handle_cmd_return_data(char *data, uint8_t start, uint8_t length);
+static bool nodePinBusyStatusHolding( gpio_level_t gpio_level, uint32_t time );
 static bool node_block_join(uint16_t time_second);
 static void down_data_process(down_list_t **list_head);
 static void free_down_info_list(down_list_t **list_head, free_level_t free_level);
@@ -54,8 +60,8 @@ static void commResultPrint(execution_status_t send_result);
 */
 static void transfer_node_data(uint8_t *buffer, uint8_t size)
 {	
-	LPUART1_RECEIVE_FLAG = 0;
-	LPUART1_WRITE_DATA(buffer, size);
+	UART_TO_LRM_RECEIVE_FLAG = 0;
+	UART_TO_MODULE_WRITE_DATA(buffer, size);
 }
 
 
@@ -147,10 +153,10 @@ static bool transfer_configure_command(char *cmd)
 	lower2upper_and_remove_spaces((uint8_t *)cmd, (uint8_t *)tmp_cmd);
 	strcat(tmp_cmd, "\r\n");
 	
-	LPUART1_RECEIVE_FLAG = 0;
-	memset(LPUART1_RECEIVE_BUFFER, 0, sizeof(LPUART1_RECEIVE_BUFFER));
+	UART_TO_LRM_RECEIVE_FLAG = 0;
+	memset(UART_TO_LRM_RECEIVE_BUFFER, 0, sizeof(UART_TO_LRM_RECEIVE_BUFFER));
 
-	LPUART1_WRITE_STRING((uint8_t *)tmp_cmd);
+	UART_TO_LRM_WRITE_STRING((uint8_t *)tmp_cmd);
 	
 	if(NULL != find_string((uint8_t *)tmp_cmd, (uint8_t *)"AT+SAVE"))
 	{
@@ -162,7 +168,7 @@ static bool transfer_configure_command(char *cmd)
 	}
 
 	timeout_start_flag = true;
-	while(LPUART1_RECEIVE_FLAG == 0)
+	while(UART_TO_LRM_RECEIVE_FLAG == 0)
 	{
 		if(true == time_out_break_ms(timeouts))
 		{
@@ -170,8 +176,8 @@ static bool transfer_configure_command(char *cmd)
 		}
 	}
 	
-	LPUART1_RECEIVE_FLAG = 0;
-	result = find_string(LPUART1_RECEIVE_BUFFER, (uint8_t *)"OK");
+	UART_TO_LRM_RECEIVE_FLAG = 0;
+	result = find_string(UART_TO_LRM_RECEIVE_BUFFER, (uint8_t *)"OK");
 	
 	if(NULL != find_string((uint8_t *)tmp_cmd, (uint8_t *)"AT+RESET") && NULL != result)
 	{
@@ -206,32 +212,32 @@ static bool transfer_inquire_command(char *cmd, uint8_t *result)
 	lower2upper_and_remove_spaces((uint8_t *)cmd, (uint8_t *)tmp_cmd);
 	strcat(tmp_cmd, "\r\n");
 	
-	LPUART1_RECEIVE_FLAG = 0;
-	memset(LPUART1_RECEIVE_BUFFER, 0, sizeof(LPUART1_RECEIVE_BUFFER));
+	UART_TO_LRM_RECEIVE_FLAG = 0;
+	memset(UART_TO_LRM_RECEIVE_BUFFER, 0, sizeof(UART_TO_LRM_RECEIVE_BUFFER));
 	
-	LPUART1_WRITE_STRING((uint8_t *)tmp_cmd);
+	UART_TO_LRM_WRITE_STRING((uint8_t *)tmp_cmd);
 	
 	timeout_start_flag = true;
-	while(LPUART1_RECEIVE_FLAG == 0)
+	while(UART_TO_LRM_RECEIVE_FLAG == 0)
 	{
 		if(true == time_out_break_ms(500))
 		{
 			break;
 		}
 	}
-	LPUART1_RECEIVE_FLAG = 0;
+	UART_TO_LRM_RECEIVE_FLAG = 0;
 	
-	response = find_string(LPUART1_RECEIVE_BUFFER, (uint8_t *)"OK");
+	response = find_string(UART_TO_LRM_RECEIVE_BUFFER, (uint8_t *)"OK");
 	if(response)
 	{
 		match_string((uint8_t *)cmd, (uint8_t *)"AT", (uint8_t *)"?", cmd_content);	
 		while(0 != cmd_content[++i]);
 		cmd_content[i++] = ':';
-		match_string(LPUART1_RECEIVE_BUFFER, cmd_content, (uint8_t *)"OK", result);
+		match_string(UART_TO_LRM_RECEIVE_BUFFER, cmd_content, (uint8_t *)"OK", result);
 	}
 	else
 	{
-		memcpy(result,LPUART1_RECEIVE_BUFFER,strlen((char*)LPUART1_RECEIVE_BUFFER));
+		memcpy(result,UART_TO_LRM_RECEIVE_BUFFER,strlen((char*)UART_TO_LRM_RECEIVE_BUFFER));
 	}
 	return response;
 }
@@ -248,6 +254,27 @@ static uint8_t handle_cmd_return_data(char *data, uint8_t start, uint8_t length)
 	transfer_inquire_command(data, inquire_return_data);
 
 	return htoi((inquire_return_data + start), 2);	
+}
+
+
+/**
+*  模块BUSY引脚状态保持时长
+*@param		gpio_level：引脚电平; time: 状态保持的超时时间
+*@return	模块BUSY引脚状态在超时时间内是否改变
+*@retval		true:  BUSY引脚改变当前状态
+*@retval		false: BUSY引脚保持当前状态
+*/
+static bool nodePinBusyStatusHolding( gpio_level_t gpio_level, uint32_t time )
+{
+	timeout_start_flag = true;
+	while( gpio_level == node_gpio_read( busy ) )
+	{
+		if( true == time_out_break_ms( time ) )
+		{
+			return false;
+		}
+	}
+	return true;
 }
 
 
@@ -296,6 +323,8 @@ static bool node_block_join(uint16_t time_second)
 		// 3.到达设定时间后若未入网则超时返回
 		if(true == time_out_break_ms(time_second * 1000))
 		{
+			node_join_successfully = false;
+			
 			node_gpio_set(wake, sleep);
 			
 #ifdef DEBUG_LOG_LEVEL_1			
@@ -304,28 +333,34 @@ static bool node_block_join(uint16_t time_second)
 			return false;
 		}
 		
-		/* 若模块日志开启，等待入网日志 */
-		if(LPUART1_RECEIVE_FLAG)
+		if(device_mode == CMD_CONFIG_MODE)
 		{
-			LPUART1_RECEIVE_FLAG = 0;
-			usart2_send_data(LPUART1_RECEIVE_BUFFER,LPUART1_RECEIVE_LENGTH);
+			node_join_successfully = false;
+			return false;
+		}
+		
+		/* 若模块日志开启，等待入网日志 */
+		if(UART_TO_LRM_RECEIVE_FLAG)
+		{
+			UART_TO_LRM_RECEIVE_FLAG = 0;
+			usart2_send_data(UART_TO_LRM_RECEIVE_BUFFER,UART_TO_LRM_RECEIVE_LENGTH);
 		}
 	}while(high != stat_level || high != busy_level); 
 	
 	timeout_start_flag = true;
 	
 	/* 若日志开启，等待最后一包入网日志 */
-	while(0 == LPUART1_RECEIVE_FLAG)
+	while(0 == UART_TO_LRM_RECEIVE_FLAG)
 	{
 		if(true == time_out_break_ms(300))
 		{
 			break;
 		}
 	}
-	if(LPUART1_RECEIVE_FLAG)
+	if(UART_TO_LRM_RECEIVE_FLAG)
 	{
-		LPUART1_RECEIVE_FLAG = 0;
-		usart2_send_data(LPUART1_RECEIVE_BUFFER,LPUART1_RECEIVE_LENGTH);
+		UART_TO_LRM_RECEIVE_FLAG = 0;
+		usart2_send_data(UART_TO_LRM_RECEIVE_BUFFER,UART_TO_LRM_RECEIVE_LENGTH);
 	}
 
 #ifdef USE_NODE_STATUS
@@ -342,10 +377,10 @@ static bool node_block_join(uint16_t time_second)
 #endif	
 
 #ifdef DEBUG_LOG_LEVEL_1
-	DEBUG_PRINTF("Join seccussfuly\r\n");
+	DEBUG_PRINTF("Join seccussfully\r\n");
 #endif
 	// 5.若未超时返回则表明模块入网成功
-	node_join_successfully = 1;
+	node_join_successfully = true;
 	return true;
 }
 
@@ -385,7 +420,7 @@ static void down_data_process(down_list_t **list_head)
 #ifdef USE_NODE_STATUS
 			p1->down_info.size = UART_RECEIVE_LENGTH - 5;
 #else
-			p1->down_info.size = LPUART1_RECEIVE_LENGTH;
+			p1->down_info.size = UART_TO_LRM_RECEIVE_LENGTH;
 #endif				
 			if(0 == p1->down_info.size)
 			{
@@ -417,7 +452,7 @@ static void down_data_process(down_list_t **list_head)
 #else
 				for(cnt = 0; cnt < p1->down_info.size; cnt++)
 				{
-					*(p1->down_info.business_data + cnt) = LPUART1_RECEIVE_BUFFER[cnt];
+					*(p1->down_info.business_data + cnt) = UART_TO_LRM_RECEIVE_BUFFER[cnt];
 				}						
 #endif	
 				p1->next = NULL;
@@ -503,33 +538,21 @@ static execution_status_t node_block_send(uint8_t *buffer, uint8_t size, down_li
 	// 4.切到透传模式
 	node_gpio_set(mode, transparent);
 	
-	// 5.发送数据前判断模块BUSY状态，若为忙则等待TIMEOUT后返回
-	timeout_start_flag = true;
-	while(low == node_gpio_read(busy))
+	// 5.发送数据前判断模块BUSY引脚是否为低电平，若为低则等待TIMEOUT后返回
+	if( nodePinBusyStatusHolding( low, 1000 ) == false )
 	{
-		if(true == time_out_break_ms(1 * 1000))
-		{
-			abnormal_count++;
-			return NODE_BUSY_BFE_RECV_UDATA;
-		}
+		abnormal_count ++;
+		return NODE_BUSY_BFE_RECV_UDATA;
 	} 
-	
-#ifdef DEBUG_LOG_LEVEL_1
-	/* 打印用户数据相关信息 */
-	DEBUG_PRINTF("--send message: %s--size: %d\r\n", buffer, strlen((char*)buffer));
-#endif
 	
 	// 6.通过串口向模块发送数据
 	transfer_node_data(buffer, size);
+	
 	// 7.判断模块BUSY是否拉低，若1s内未拉低，则模块串口异常
-	timeout_start_flag = true;
-	while(high == node_gpio_read(busy))
+	if( nodePinBusyStatusHolding( high, 1000 ) == false )
 	{
-		if(true == time_out_break_ms(1*1000))
-		{
-			abnormal_count++;
-			return NODE_IDLE_ATR_RECV_UDATA;
-		}
+		abnormal_count++;
+		return NODE_IDLE_ATR_RECV_UDATA;
 	}
 	
 	abnormal_count = 0;
@@ -537,32 +560,18 @@ static execution_status_t node_block_send(uint8_t *buffer, uint8_t size, down_li
 	// 8.等待BUSY拉高
 	do
 	{
-		timeout_start_flag = true;
-		while(low == node_gpio_read(busy))
-		{ 
-			/* 数据通信最大超时时间：60s */
-			if(true == time_out_break_ms(60 * 1000))
-			{
-				return NODE_BUSY_ATR_COMM;
-			}
+		/* 数据通信最大超时时间：60s */
+		if( nodePinBusyStatusHolding( low, 60*1000 ) == false )
+		{
+			return NODE_BUSY_ATR_COMM;
 		}
 		
-		timeout_start_flag = true;
-		
-		/* 如果服务器还有数据, 等待busy引脚拉高 */
-		while(high == node_gpio_read(busy))
-		{ 
-			
-			if(true == time_out_break_ms(100))
-			{
-				break;
-			}
-		}
-		
-		timeout_start_flag = true;
+		/* 如果BUSY引脚拉高时长少于100ms,说明还有下行 */
+		nodePinBusyStatusHolding( high, 100 );			
 		
 		/* 是否有下行数据或者数据通信日志，等待串中断 */
-		while(0 == LPUART1_RECEIVE_FLAG)
+		timeout_start_flag = true;
+		while(0 == UART_TO_LRM_RECEIVE_FLAG)
 		{
 			if(true == time_out_break_ms(300))
 			{
@@ -570,25 +579,25 @@ static execution_status_t node_block_send(uint8_t *buffer, uint8_t size, down_li
 			}
 		}
 		
-		if(1 == LPUART1_RECEIVE_FLAG && LPUART1_RECEIVE_LENGTH > 0)
+		if(1 == UART_TO_LRM_RECEIVE_FLAG && UART_TO_LRM_RECEIVE_LENGTH > 0)
 		{
-			LPUART1_RECEIVE_FLAG = 0;
+			UART_TO_LRM_RECEIVE_FLAG = 0;
 			
 			/* 发送下行数据或通信日志给PC */
-			USART2_WRITE_DATA(LPUART1_RECEIVE_BUFFER,LPUART1_RECEIVE_LENGTH);
+			UART_TO_PC_WRITE_DATA(UART_TO_LRM_RECEIVE_BUFFER,UART_TO_LRM_RECEIVE_LENGTH);
 
 			/* 获取下行数据 */
 			down_data_process(list_head);
 		}
 		else
 		{
-			LPUART1_RECEIVE_LENGTH = 0;
+			UART_TO_LRM_RECEIVE_LENGTH = 0;
 		}
 		
 		/* 是否已连续通信失败32次 */
 		if(31 == confirm_continue_failure_count)
 		{
-			if(low == node_gpio_read(busy) && LPUART1_RECEIVE_LENGTH < 10)
+			if(low == node_gpio_read(busy) && UART_TO_LRM_RECEIVE_LENGTH < 10)
 			{
 				// 判断BUSY脚为低后查询模块当前已否已经处于重新注册状态
 				if(1 == handle_cmd_return_data("AT+JOIN?", 1, 1))
@@ -610,6 +619,7 @@ static execution_status_t node_block_send(uint8_t *buffer, uint8_t size, down_li
 			}
 		}
 	}while(low == node_gpio_read(busy));
+	
 	
 	// 10.通过STAT引脚判断当前通信状态
 	if(low == node_gpio_read(stat))
@@ -978,12 +988,20 @@ void nodeResetJoin(uint16_t time_second)
 
 /**
 *@brief		模块数据通信并打印通信结果
-*@param		frame_type: 帧类型和重发次数; buffer: 用户数据; size: 用户数据大小; list_head: 下行数据链表
+*@param		buffer: 用户数据; size: 用户数据大小; list_head: 下行数据链表
 *@return	send_result：模块的通信结果
  */
 execution_status_t nodeDataCommunicate(uint8_t *buffer, uint8_t size, down_list_t **list_head)
 {
+	uint8_t buf_tmp[255] = {0};
 	execution_status_t send_result;
+	
+	memcpy(buf_tmp,buffer,size);
+#ifdef DEBUG_LOG_LEVEL_1
+	/* 打印用户数据相关信息 */
+	DEBUG_PRINTF("--send message: %s--size: %d\r\n", buf_tmp, size);
+#endif
+	
 	send_result = node_block_send(buffer, size, list_head);
 
 #ifdef DEBUG_LOG_LEVEL_1

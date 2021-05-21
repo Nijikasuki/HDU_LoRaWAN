@@ -6,6 +6,10 @@
 /** 设置超时开始标致 */
 bool timeout_start_flag = true;
 
+/** 定义设备模式参数 */
+DEVICE_MODE_T device_mode = NO_MODE;
+DEVICE_MODE_T *Device_Mode_str = &device_mode; 
+
 
 /**
 *  延时函数
@@ -24,7 +28,7 @@ void system_delay_ms(uint32_t delay)
 *@param 	time: 设置的具体超时时间值，单位毫秒
 *@return	是否到设定的超时时间
 */
-bool time_out_break_ms(uint32_t time)
+bool time_out_break_ms( uint32_t time )
 {
 	static uint32_t start_time;
 	

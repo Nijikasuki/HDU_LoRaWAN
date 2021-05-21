@@ -6,7 +6,7 @@
 
 
 /* 软件版本，升级时修改该信息即可 */
-#define CODE_VERSION "V1.0.0" 
+#define CODE_VERSION "V1.0.3" 
 /* 软件版本，升级时修改该信息即可 */
 #define PRINT_CODE_VERSION_INFO(format, ...)  debug_printf("******** ---Based on LoRaWAN sensor data transmission experiment "format"_%s %s --- ********\r\n", ##__VA_ARGS__, __DATE__, __TIME__)
 
@@ -16,14 +16,6 @@
 
 /** 入网超时时间：120s */
 #define JOIN_TIME_120_SEC  120
-
-typedef enum {
-	CMD_CONFIG_FUNC = 0,
-	DATA_TRANSPORT_FUNC,
-	DATA_REPORT_ONE_TIME_FUNC,
-	DATA_REGU_REPORT_FUNC,
-    NO_FUNC
-} DEVICE_FUNCTION;
 
 
 typedef struct {

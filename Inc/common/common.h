@@ -13,6 +13,16 @@
 /** 全局变量 */
 extern bool timeout_start_flag;  //Timeout sign
 
+
+/** 设备模式功能定义 */
+typedef enum {
+	CMD_CONFIG_MODE = 0,
+	DATA_TRANSPORT_MODE,
+	PRO_TRAINING_MODE,
+    NO_MODE
+} DEVICE_MODE_T;
+
+
 /** 系统时间差值计算 */
 #define SUBTRANCTION_CORSS_ZERO(e, s)   e < s ? e + 4294967296 - s : e - s
 /*=====================================END======================================*/

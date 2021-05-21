@@ -46,36 +46,36 @@ extern "C" {
 /*-------------根据具体的硬件平台，改写以下宏定义中操作的具体实现---------------*/
 
 /** 与模块相连接的串口发送函数，按参数中指定的长度发送串口数据 */
-#define LPUART1_WRITE_DATA(buffer, size)		lpusart1_send_data(buffer, size)
+#define UART_TO_MODULE_WRITE_DATA(buffer, size)		lpusart1_send_data(buffer, size)
 
 /** 与模块相连接的串口发送函数，不指定长度，遇\0结束 */
-#define LPUART1_WRITE_STRING(buffer)			lpusart1_send_string(buffer)
+#define UART_TO_LRM_WRITE_STRING(buffer)			lpusart1_send_string(buffer)
 
 /** 与模块相连接的串口接收缓冲，目前串口接收数据仅支持中断加BUFFER的形式，不支持FIFO形式 */
-#define LPUART1_RECEIVE_BUFFER					LPUsart1_RX.RX_Buf
+#define UART_TO_LRM_RECEIVE_BUFFER					LPUsart1_RX.RX_Buf
 
 /** 与模块相连接的串口接收到数据的标致 */
-#define LPUART1_RECEIVE_FLAG					LPUsart1_RX.receive_flag
+#define UART_TO_LRM_RECEIVE_FLAG					LPUsart1_RX.receive_flag
 
 /** 与模块相连接的串口本次接收到数据长度 */
-#define LPUART1_RECEIVE_LENGTH					LPUsart1_RX.rx_len
+#define UART_TO_LRM_RECEIVE_LENGTH					LPUsart1_RX.rx_len
 
 /*==========================END OF LPUART1 CONFIG================================*/
 
 /** 与模块相连接的串口发送函数，按参数中指定的长度发送串口数据 */
-#define USART2_WRITE_DATA(buffer, size)			usart2_send_data(buffer, size)
+#define UART_TO_PC_WRITE_DATA(buffer, size)			usart2_send_data(buffer, size)
 
 /** 与模块相连接的串口发送函数，不指定长度，遇\0结束 */
-#define USART2_WRITE_STRING(buffer)				usart2_send_string(buffer)
+#define UART_TO_PC_WRITE_STRING(buffer)				usart2_send_string(buffer)
 
 /** 与模块相连接的串口接收缓冲，目前串口接收数据仅支持中断加BUFFER的形式，不支持FIFO形式 */
-#define USART2_RECEIVE_BUFFER					Usart2_RX.RX_Buf
+#define UART_TO_PC_RECEIVE_BUFFER					Usart2_RX.RX_Buf
 
 /** 与模块相连接的串口接收到数据的标致 */
-#define USART2_RECEIVE_FLAG						Usart2_RX.receive_flag
+#define UART_TO_PC_RECEIVE_FLAG						Usart2_RX.receive_flag
 
 /** 与模块相连接的串口本次接收到数据长度 */
-#define USART2_RECEIVE_LENGTH					Usart2_RX.rx_len
+#define UART_TO_PC_RECEIVE_LENGTH					Usart2_RX.rx_len
 
 /*==========================END OF USART2 CONFIG================================*/
 

@@ -23,6 +23,11 @@
 */
 
 
+#ifndef DEBUG_LOG_LEVEL_1
+#define DEBUG_LOG_LEVEL_1
+#endif
+
+
 /** 模块连续异常计数最大值，超过该值时驱动将复位模块 */
 #define ABNORMAL_CONTINUOUS_COUNT_MAX			6
 
@@ -125,8 +130,8 @@ typedef union node_reset_single
  * 本次通信息的下行信息
  */
 typedef struct down_info {
-	uint16_t size;		///< 业务数据长度
-	uint8_t *business_data;	///< 业务数据。
+	uint16_t size;			///< 业务数据长度
+	uint8_t *business_data;	///< 业务数据
 #ifdef USE_NODE_STATUS
 	uint8_t result_ind;	///< 该字段详见模块使用说明书	
 	int8_t snr;			///< 下行SNR，若无下行，则该值为0
