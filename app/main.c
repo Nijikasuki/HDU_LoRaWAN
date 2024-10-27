@@ -42,9 +42,9 @@
 #include "mma8451.h"
 #include "ST7789v.h"
 #include "XPT2046.h"
-#include "Lcd_App.h"
+#include "sensors_test.h"
 /* USER CODE BEGIN 0 */
-extern uint8_t LCD_EN;
+
 /* USER CODE END 0 */
 
 /**
@@ -55,69 +55,50 @@ extern uint8_t LCD_EN;
 int main(void)
 {
     HAL_Init();
-	
-    /* 系统时钟配置 */
+    /** 系统时钟配置 */
     SystemClock_Config();
-	
-    /* 外设初始化 */	
+
+    /** 外设初始化 */
     MX_GPIO_Init();
     MX_DMA_Init();
     MX_RTC_Init();
-	
-    /** -----串口初始化-------*/	
-    mx_lpusart1_uart_init(9600);  //MCU与模块相连串口
-    mx_usart2_uart_init(115200);  //MCU与PC相连串口
-	MX_I2C1_Init();
-	
-    HAL_Delay(20); 
-    lpusart1_clear_it();         //清除中断并开启空闲中断
-    usart2_clear_it();           //清除中断并开启空闲中断
-    
-	/** 温湿度传感器 */
-	HDC1000_Init();
-	
-	/** 光强传感器 */
-	OPT3001_Init();
-	
-	/** 气压传感器 */
-	MPL3115_Init(MODE_BAROMETER);
-	
-	/** 加速度传感器 */
-	MMA8451_Init();
-	
-	if(HAL_GPIO_ReadPin(GPIOD,GPIO_PIN_2) == 1 && HAL_GPIO_ReadPin(GPIOD,GPIO_PIN_0) == 1)
-	{
-		LCD_EN = 1;
+
+    /** 串口初始化 */
+    MX_LPUART1_Init(9600);  //MCU与模块相连串口
+    MX_USART2_Init(115200);  //MCU与PC相连串口
+    MX_I2C1_Init();
 		
-	}else
-  	{
-  		LCD_EN = 0;
-  	}
+    HAL_Delay(20);
+    LPUART1_Clear_IT();         //清除中断并开启空闲中断
+    USART2_Clear_IT();           //清除中断并开启空闲中断
 
+    /** 温湿度传感器 */
+    HDC1000_Init();
 
-  
-  if(LCD_EN)   //如果有液晶，需要进行初始化
-  {
-  	ST7789V_INIT();
-  	XPT2046_init();
-	MX_TIM15_Init(1500);
-	LCD_Test();
-	Touch_Adjust();
-  }
-  
-    HAL_Delay(500);              //模块上电初始化时间   
+    /** 光强传感器 */
+    OPT3001_Init();
 
-	/** 复位模块 */
-	nodeHardReset();
-	
-	/** 开发板信息打印 */
-	lorawan_borad_infor_print(); 
-	
+    /** 气压传感器 */
+    MPL3115_Init(MODE_BAROMETER);
+
+    /** 加速度传感器 */ 
+    //MMA8451_Init();
+
+    /** 液晶 */
+    LCD_Init();
+
+    /** 复位模块 */
+    HAL_Delay(500);              //模块上电初始化时间
+    Node_Hard_Reset();
+
+    /** 开发板信息打印 */
+    LoRaWAN_Borad_Info_Print();
+		
     /* Infinite loop */
     /* USER CODE BEGIN WHILE  */
     while (1)
     {
-        lorawan_func_process();
+        LoRaWAN_Func_Process();
     }
 }
 
@@ -128,77 +109,77 @@ int main(void)
 void SystemClock_Config(void)
 {
     RCC_OscInitTypeDef RCC_OscInitStruct;
-	RCC_ClkInitTypeDef RCC_ClkInitStruct;
-	RCC_PeriphCLKInitTypeDef PeriphClkInit;
-	
-	/* PWR CLOCK ENABLE*/
+    RCC_ClkInitTypeDef RCC_ClkInitStruct;
+    RCC_PeriphCLKInitTypeDef PeriphClkInit;
+
+    /* PWR CLOCK ENABLE*/
     __PWR_CLK_ENABLE();
 
-    /**Configure the main internal regulator output voltage 
+    /**Configure the main internal regulator output voltage
     */
-	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-	  /**Initializes the CPU, AHB and APB busses clocks 
-	  */
-	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI | RCC_OSCILLATORTYPE_LSI;
+    /**Initializes the CPU, AHB and APB busses clocks
+    */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI | RCC_OSCILLATORTYPE_LSI;
 //	RCC_OscInitStruct.LSEState = RCC_LSE_ON ;
-	RCC_OscInitStruct.HSIState = RCC_HSI_ON ;
-	RCC_OscInitStruct.LSIState = RCC_LSI_ON ;
-	RCC_OscInitStruct.HSICalibrationValue = 16;
-	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-	RCC_OscInitStruct.PLL.PLLM = 1;
-	RCC_OscInitStruct.PLL.PLLN = 10;
-	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
-	RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
-	RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;    //PLLCLK = HSI*N/M/R = 80MHz
-	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-	{
-	  	Error_Handler();
-	}
+    RCC_OscInitStruct.HSIState = RCC_HSI_ON ;
+    RCC_OscInitStruct.LSIState = RCC_LSI_ON ;
+    RCC_OscInitStruct.HSICalibrationValue = 16;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+    RCC_OscInitStruct.PLL.PLLM = 1;
+    RCC_OscInitStruct.PLL.PLLN = 10;
+    RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
+    RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
+    RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;    //PLLCLK = HSI*N/M/R = 80MHz
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+        Error_Handler();
+    }
 
-	/**Initializes the CPU, AHB and APB busses clocks */
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-								 |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK; //select the PLL as the system clock source
-	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;        //AHB prescaler
-	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;         //APB1 prescaler
-	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;         //APB2 prescaler
+    /**Initializes the CPU, AHB and APB busses clocks */
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                                  |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK; //select the PLL as the system clock source
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;        //AHB prescaler
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;         //APB1 prescaler
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;         //APB2 prescaler
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK)
-	{
-		Error_Handler();
-	}
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK)
+    {
+        Error_Handler();
+    }
 
-	PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1|RCC_PERIPHCLK_USART2
-                              |RCC_PERIPHCLK_LPUART1|RCC_PERIPHCLK_I2C1 |RCC_PERIPHCLK_RTC;
-	PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK2;
-	PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
-	PeriphClkInit.Lpuart1ClockSelection = RCC_LPUART1CLKSOURCE_HSI;
-	PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_PCLK1;
-	PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
-	if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
-	{
-		Error_Handler();
-	}
+    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1|RCC_PERIPHCLK_USART2
+                                         |RCC_PERIPHCLK_LPUART1|RCC_PERIPHCLK_I2C1 |RCC_PERIPHCLK_RTC;
+    PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK2;
+    PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
+    PeriphClkInit.Lpuart1ClockSelection = RCC_LPUART1CLKSOURCE_HSI;
+    PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_PCLK1;
+    PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+    {
+        Error_Handler();
+    }
 
-	/**Configure the main internal regulator output voltage 
-	  */
-	if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
-	{
-		Error_Handler();
-	}
-	
-	/**Configure the Systick interrupt time 
-	  */
-	HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);  //1ms 中断一次
+    /**Configure the main internal regulator output voltage
+      */
+    if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
+    {
+        Error_Handler();
+    }
 
-	  /**Configure the Systick 
-	  */
-	HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
+    /**Configure the Systick interrupt time
+      */
+    HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);  //1ms 中断一次
 
-	/* SysTick_IRQn interrupt configuration */
-	HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
+    /**Configure the Systick
+    */
+    HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
+
+    /* SysTick_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 }
 
 /* USER CODE END 4 */
@@ -228,7 +209,7 @@ void _Error_Handler(char *file, int line)
 * @retval None
 */
 void assert_failed(uint8_t* file, uint32_t line)
-{ 
+{
     /* USER CODE BEGIN 6 */
     /* User can add his own implementation to report the file name and line number,
     tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
